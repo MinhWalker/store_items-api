@@ -1,14 +1,17 @@
 package controllers
 
 import (
-	"fmt"
+	"encoding/json"
 	"github.com/MinhWalker/store_items-api/src/domain/items"
 	"github.com/MinhWalker/store_items-api/src/services"
+	"github.com/MinhWalker/store_items-api/src/utils/http_utils"
 	"github.com/MinhWalker/store_oauth-go/oauth"
+	"github.com/MinhWalker/store_utils-go/rest_errors"
+	"io/ioutil"
 	"net/http"
 )
 
-var(
+var (
 	ItemsController itemsControllerInterface = &itemsController{}
 )
 
@@ -20,25 +23,40 @@ type itemsControllerInterface interface {
 type itemsController struct {
 }
 
-func (c *itemsController) Create(w http.ResponseWriter, r *http.Request)  {
+func (c *itemsController) Create(w http.ResponseWriter, r *http.Request) {
 	if err := oauth.AuthenticateRequest(r); err != nil {
-		//TODO: Return error to the user.
+		http_utils.RespondError(w, err)
 		return
 	}
 
-	item := items.Item{
-		Seller:            oauth.GetCallerId(r),
-	}
-
-	result, err := services.ItemsService.Create(item)
+	requestBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		//TODO: Return error json to user.
+		respErr := rest_errors.NewBadRequestError("Invalid request body")
+		http_utils.RespondError(w, respErr)
+		return
+	}
+	defer r.Body.Close()
+
+	var itemRequest items.Item
+	if err := json.Unmarshal(requestBody, &itemRequest); err != nil {
+		respErr := rest_errors.NewBadRequestError("Invalid json body")
+		http_utils.RespondError(w, respErr)
+		return
 	}
 
-	fmt.Println(result)
+	itemRequest.Seller = oauth.GetClientId(r)
+
+	result, createErr := services.ItemsService.Create(itemRequest)
+	if createErr != nil {
+		//TODO: Return error json to user.
+		http_utils.RespondError(w, createErr)
+		return
+	}
+
 	//TODO: Return created item with HTTP status 201 - Created.
+	http_utils.RespondJson(w, http.StatusCreated, result)
 }
 
-func (c *itemsController) Get(w http.ResponseWriter, r *http.Request)  {
-	
+func (c *itemsController) Get(w http.ResponseWriter, r *http.Request) {
+
 }
