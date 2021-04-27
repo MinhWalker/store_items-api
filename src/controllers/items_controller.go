@@ -29,6 +29,13 @@ func (c *itemsController) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sellerId := oauth.GetCallerId(r)
+	if sellerId == 0 {
+		respErr := rest_errors.NewUnauthorizedError("Invalid request body")
+		http_utils.RespondError(w, respErr)
+		return
+	}
+
 	requestBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		respErr := rest_errors.NewBadRequestError("Invalid request body")
